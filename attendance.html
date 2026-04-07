@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Attendance"/>
+<meta name="theme-color" content="#0f172a"/>
+<title>Attendance Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    padding: 16px;
+    padding-bottom: 40px;
+  }
+  .header { text-align: center; margin-bottom: 20px; }
+  .header-sub { font-size: 10px; letter-spacing: 4px; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
+  .header-title { font-size: 24px; font-weight: bold; color: #f1f5f9; }
+  .header-year { font-size: 11px; color: #475569; margin-top: 4px; }
+
+  .stats-card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border: 1px solid #334155;
+    transition: border-color 0.3s;
+  }
+  .stats-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .stat-box { text-align: center; }
+  .stat-val { font-size: 20px; font-weight: bold; }
+  .stat-label { font-size: 9px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .pct-big { font-size: 36px; font-weight: bold; line-height: 1; }
+  .pct-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+
+  .progress-wrap { margin-top: 12px; }
+  .progress-bg { background: #334155; border-radius: 4px; height: 7px; position: relative; }
+  .progress-fill { border-radius: 4px; height: 7px; transition: width 0.4s, background 0.3s; }
+  .progress-marker { position: absolute; left: 75%; top: -4px; width: 2px; height: 15px; background: #94a3b8; }
+  .progress-hint { font-size: 10px; color: #64748b; margin-top: 4px; text-align: right; }
+
+  .alert-box {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .alert-safe { background: #16532422; border: 1px solid #22c55e33; color: #86efac; }
+  .alert-warn { background: #7f1d1d33; border: 1px solid #ef444433; color: #fca5a5; }
+  .projection-box {
+    margin-top: 8px;
+    padding: 10px;
+    background: #0f172a;
+    border-radius: 6px;
+    line-height: 1.7;
+  }
+  .proj-title { color: #fbbf24; font-weight: bold; margin-bottom: 4px; }
+  .proj-date { color: #f59e0b; font-size: 14px; font-weight: bold; }
+  .proj-info { color: #94a3b8; font-size: 11px; margin-top: 2px; }
+  .proj-sub { color: #475569; font-size: 10px; margin-top: 4px; }
+
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .nav-btn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 18px;
+    cursor: pointer;
+    font-family: monospace;
+    touch-action: manipulation;
+  }
+  .nav-btn:active { background: #334155; }
+  .month-info { text-align: center; }
+  .month-name { font-size: 18px; font-weight: bold; color: #f1f5f9; }
+  .month-stats { font-size: 11px; color: #64748b; margin-top: 3px; }
+
+  .day-headers {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 3px;
+  }
+  .day-header {
+    text-align: center;
+    font-size: 10px;
+    padding: 4px 0;
+    letter-spacing: 1px;
+  }
+
+  .calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .day-cell {
+    border-radius: 8px;
+    padding: 6px 2px;
+    text-align: center;
+    min-height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    position: relative;
+    user-select: none;
+  }
+  .day-cell:active { transform: scale(0.92); }
+  .day-cell.empty { pointer-events: none; }
+  .day-cell.future { opacity: 0.25; pointer-events: none; }
+  .day-cell.sunday { background: #0f172a; }
+  .day-cell.vacation { background: #1e293b; border: 1px solid #334155; cursor: default; }
+  .day-cell.holiday { background: #2d1b69; border: 1px solid #4c1d9533; cursor: default; }
+  .day-cell.present { background: #14532d; border: 1px solid #22c55e44; }
+  .day-cell.absent { background: #7f1d1d; border: 1px solid #ef444433; }
+  .day-cell.unmarked { background: #1e293b; border: 1px dashed #334155; }
+  .day-cell.today { border: 2px solid #f59e0b !important; }
+
+  .day-num { font-size: 13px; font-weight: normal; }
+  .day-num.bold { font-weight: bold; }
+  .day-sub { font-size: 8px; margin-top: 1px; line-height: 1.2; }
+  .today-dot {
+    position: absolute;
+    top: 3px; right: 4px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #f59e0b;
+  }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 16px;
+    padding: 12px;
+    background: #1e293b;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; color: #94a3b8; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  .instructions {
+    margin-top: 14px;
+    padding: 12px;
+    background: #1e293b;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #64748b;
+    text-align: center;
+    line-height: 1.9;
+  }
+
+  .install-banner {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    background: #1e1033;
+    border: 1px solid #6d28d944;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #a78bfa;
+    text-align: center;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const HOLIDAYS = {
+  "2026-04-03": "Good Friday",
+  "2026-04-10": "Ram Navami",
+  "2026-04-14": "Ambedkar Jayanti",
+  "2026-06-07": "Eid ul-Adha",
+  "2026-08-10": "Janmashtami",
+  "2026-08-15": "Independence Day",
+  "2026-08-27": "Milad-un-Nabi",
+  "2026-10-02": "Gandhi Jayanti",
+  "2026-10-13": "Dussehra",
+  "2026-11-05": "Guru Nanak Jayanti",
+  "2026-12-25": "Christmas",
+  "2027-01-14": "Makar Sankranti",
+  "2027-01-26": "Republic Day",
+  "2027-02-17": "Maha Shivratri",
+  "2027-03-02": "Holi",
+};
+
+const VACATIONS = [
+  { start: "2026-05-26", end: "2026-06-30", label: "Summer Vacation" },
+  { start: "2026-10-18", end: "2026-10-23", label: "Diwali Break" },
+  { start: "2026-12-26", end: "2027-01-01", label: "Winter Break" },
+];
+
+const ACADEMIC_MONTHS = [
+  {year:2026,month:3},{year:2026,month:4},{year:2026,month:5},
+  {year:2026,month:6},{year:2026,month:7},{year:2026,month:8},
+  {year:2026,month:9},{year:2026,month:10},{year:2026,month:11},
+  {year:2027,month:0},{year:2027,month:1},{year:2027,month:2},
+];
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+let attendance = {};
+let currentMonthIdx = 0;
+
+function getToday() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function ds(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function isVacation(date) {
+  return VACATIONS.some(v => date >= v.start && date <= v.end);
+}
+
+function vacationLabel(date) {
+  const v = VACATIONS.find(v => date >= v.start && date <= v.end);
+  return v ? v.label : "";
+}
+
+function getDayStatus(date, dow) {
+  if (dow === 0) return "sunday";
+  if (isVacation(date)) return "vacation";
+  if (HOLIDAYS[date]) return "holiday";
+  return attendance[date] || "unmarked";
+}
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem("sachin_attendance_2026");
+    if (saved) attendance = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveData() {
+  try {
+    localStorage.setItem("sachin_attendance_2026", JSON.stringify(attendance));
+  } catch(e) {}
+}
+
+function calcStats(monthOnly = null) {
+  const today = getToday();
+  let totalWorking = 0, totalPresent = 0, totalAbsent = 0;
+  const months = monthOnly !== null ? [ACADEMIC_MONTHS[monthOnly]] : ACADEMIC_MONTHS;
+  months.forEach(({ year, month }) => {
+    const dim = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= dim; d++) {
+      const date = ds(year, month, d);
+      if (date > today) continue;
+      const dow = new Date(year, month, d).getDay();
+      const status = getDayStatus(date, dow);
+      if (status !== "sunday" && status !== "vacation" && status !== "holiday") {
+        totalWorking++;
+        if (status === "present") totalPresent++;
+        if (status === "absent") totalAbsent++;
+      }
+    }
+  });
+  const pct = totalWorking > 0 ? (totalPresent / totalWorking * 100).toFixed(1) : "0.0";
+  return { totalWorking, totalPresent, totalAbsent, pct };
+}
+
+function calcProjection(p, w) {
+  if (w > 0 && p / w >= 0.75) return null;
+  const today = getToday();
+  let cur = new Date(today);
+  cur.setDate(cur.getDate() + 1);
+  let daysNeeded = 0;
+  const end = new Date("2027-03-31");
+  while (cur <= end) {
+    const date = cur.toISOString().split("T")[0];
+    const dow = cur.getDay();
+    if (dow !== 0 && !isVacation(date) && !HOLIDAYS[date]) {
+      w++; p++; daysNeeded++;
+      if (p / w >= 0.75) return { date, daysNeeded, present: p, working: w };
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return { date: null, daysNeeded };
+}
+
+function formatDate(date) {
+  if (!date) return "Saal khatam bhi ho jayega 😬";
+  const d = new Date(date + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+}
+
+function toggleDay(date, dow) {
+  const today = getToday();
+  if (date > today) return;
+  if (dow === 0 || isVacation(date) || HOLIDAYS[date]) return;
+  const cur = attendance[date] || "unmarked";
+  const next = cur === "present" ? "absent" : cur === "absent" ? "unmarked" : "present";
+  if (next === "unmarked") delete attendance[date];
+  else attendance[date] = next;
+  saveData();
+  render();
+}
+
+function render() {
+  const today = getToday();
+  const yearStats = calcStats();
+  const monthStats = calcStats(currentMonthIdx);
+  const { totalPresent, totalWorking } = yearStats;
+  const pctNum = parseFloat(yearStats.pct);
+  const pctColor = pctNum >= 85 ? "#22c55e" : pctNum >= 75 ? "#f59e0b" : "#ef4444";
+  const canMiss = Math.max(0, Math.floor((totalPresent - 0.75 * totalWorking) / (1 - 0.75)));
+  const projection = calcProjection(totalPresent, totalWorking);
+
+  const { year, month } = ACADEMIC_MONTHS[currentMonthIdx];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+
+  // Build calendar cells
+  let calCells = '';
+  for (let i = 0; i < firstDow; i++) {
+    calCells += `<div class="day-cell empty"></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = ds(year, month, d);
+    const dow = new Date(year, month, d).getDay();
+    const status = getDayStatus(date, dow);
+    const isFuture = date > today;
+    const isToday = date === today;
+    let classes = `day-cell ${status}`;
+    if (isFuture) classes += " future";
+    if (isToday) classes += " today";
+
+    let subText = '';
+    let subColor = '';
+    if (status === "present") { subText = '✓'; subColor = '#86efac'; }
+    else if (status === "absent") { subText = '✗'; subColor = '#fca5a5'; }
+    else if (status === "holiday") { subText = 'holiday'; subColor = '#a78bfa'; }
+    else if (status === "vacation") { subText = 'off'; subColor = '#475569'; }
+
+    let numColor = '#94a3b8';
+    if (status === "sunday") numColor = '#334155';
+    else if (status === "vacation") numColor = '#475569';
+    else if (status === "holiday") numColor = '#a78bfa';
+    else if (status === "present") numColor = '#86efac';
+    else if (status === "absent") numColor = '#fca5a5';
+
+    const clickable = !isFuture && status !== "sunday" && !isVacation(date) && !HOLIDAYS[date];
+
+    calCells += `
+      <div class="${classes}" ${clickable ? `onclick="toggleDay('${date}',${dow})"` : ''} title="${HOLIDAYS[date] || (isVacation(date) ? vacationLabel(date) : '')}">
+        <div class="day-num ${isToday ? 'bold' : ''}" style="color:${numColor}">${d}</div>
+        ${subText ? `<div class="day-sub" style="color:${subColor}">${subText}</div>` : ''}
+        ${isToday ? '<div class="today-dot"></div>' : ''}
+      </div>`;
+  }
+
+  // Alert box
+  let alertHtml = '';
+  if (pctNum >= 75) {
+    alertHtml = `<div class="alert-box alert-safe">✓ Safe! Abhi <b>${canMiss}</b> aur din miss kar sakte ho bina 75% giraye.</div>`;
+  } else {
+    let projHtml = '';
+    if (projection && projection.date) {
+      projHtml = `
+        <div class="projection-box">
+          <div class="proj-title">🎯 Agar kal se lagatar jao bina ek bhi naagaa kiye:</div>
+          <div class="proj-date">${formatDate(projection.date)}</div>
+          <div class="proj-info">ko aapki 75% complete hogi — <b>${projection.daysNeeded} lagatar school days</b> jaana hoga!</div>
+          <div class="proj-sub">${projection.present} present / ${projection.working} total = 75.0%</div>
+        </div>`;
+    } else if (projection) {
+      projHtml = `<div style="margin-top:6px;color:#fbbf24;">😬 Saal khatam hone tak bhi 75% mushkil hai...</div>`;
+    }
+    alertHtml = `<div class="alert-box alert-warn">
+      ⚠ 75% se neeche ho! Abhi: <b>${totalPresent} present</b> / <b>${totalWorking} working days</b>
+      ${projHtml}
+    </div>`;
+  }
+
+  // Is this user's first time? Show install hint
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const installHint = (isIOS || isAndroid) && !window.matchMedia('(display-mode: standalone)').matches
+    ? `<div class="install-banner">
+        📲 <b>App jaisi install karo!</b><br>
+        ${isIOS ? 'Safari mein Share button → "Add to Home Screen" tap karo' : 'Browser menu → "Add to Home Screen" tap karo'}
+      </div>` : '';
+
+  document.getElementById('app').innerHTML = `
+    ${installHint}
+
+    <div class="header">
+      <div class="header-sub">Delhi Government School</div>
+      <div class="header-title">Attendance Tracker</div>
+      <div class="header-year">Academic Year 2026–27</div>
+    </div>
+
+    <div class="stats-card" style="border-color:${pctColor}33">
+      <div class="stats-row">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;">
+          <div class="stat-box">
+            <div class="stat-val" style="color:#94a3b8">${yearStats.totalWorking}</div>
+            <div class="stat-label">Working Days</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" style="color:#22c55e">${yearStats.totalPresent}</div>
+            <div class="stat-label">Present</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" style="color:#ef4444">${yearStats.totalAbsent}</div>
+            <div class="stat-label">Absent</div>
+          </div>
+        </div>
+        <div style="text-align:center;">
+          <div class="pct-big" style="color:${pctColor}">${yearStats.pct}%</div>
+          <div class="pct-label">YEARLY %</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bg">
+          <div class="progress-fill" style="background:${pctColor};width:${Math.min(pctNum,100)}%"></div>
+          <div class="progress-marker"></div>
+        </div>
+        <div class="progress-hint">75% minimum line ↑</div>
+      </div>
+
+      ${alertHtml}
+    </div>
+
+    <div class="month-nav">
+      <button class="nav-btn" onclick="changeMonth(-1)">←</button>
+      <div class="month-info">
+        <div class="month-name">${MONTH_NAMES[month]} ${year}</div>
+        <div class="month-stats">Month ${currentMonthIdx+1}/12 &nbsp;|&nbsp; ${monthStats.totalPresent}/${monthStats.totalWorking} (${monthStats.pct}%)</div>
+      </div>
+      <button class="nav-btn" onclick="changeMonth(1)">→</button>
+    </div>
+
+    <div class="day-headers">
+      ${DAY_NAMES.map(d => `<div class="day-header" style="color:${d==='Sun'?'#ef4444':'#64748b'}">${d}</div>`).join('')}
+    </div>
+
+    <div class="calendar">${calCells}</div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#14532d;border:1px solid #22c55e44"></div><span style="color:#86efac">Present</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7f1d1d;border:1px solid #ef444433"></div><span style="color:#fca5a5">Absent</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e293b;border:1px dashed #334155"></div><span>Unmarked</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2d1b69"></div><span style="color:#a78bfa">Holiday</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e293b;border:1px solid #334155"></div><span style="color:#475569">Vacation</span></div>
+    </div>
+
+    <div class="instructions">
+      👆 Tap karo → <span style="color:#86efac">Present</span> → <span style="color:#fca5a5">Absent</span> → Unmarked<br/>
+      🟡 Yellow border = Aaj &nbsp;|&nbsp; 🟣 Purple = Holiday<br/>
+      <span style="color:#475569">Data phone mein save rehta hai ✓</span>
+    </div>
+  `;
+}
+
+function changeMonth(dir) {
+  currentMonthIdx = Math.max(0, Math.min(11, currentMonthIdx + dir));
+  render();
+}
+
+// Auto-jump to current month on load
+function getCurrentMonthIdx() {
+  const today = getToday();
+  for (let i = 0; i < ACADEMIC_MONTHS.length; i++) {
+    const { year, month } = ACADEMIC_MONTHS[i];
+    const monthStr = `${year}-${String(month+1).padStart(2,'0')}`;
+    if (today.startsWith(monthStr)) return i;
+  }
+  return 0;
+}
+
+loadData();
+currentMonthIdx = getCurrentMonthIdx();
+render();
+</script>
+</body>
+</html>
